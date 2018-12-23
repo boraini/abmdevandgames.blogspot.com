@@ -262,8 +262,8 @@
   }
   function minDuration(l, r) {
     var sorted = [];
-    for (note of l) sorted.push(note);
-    for (note of r) sorted.push(note);
+    for (note of l) if (note.duration > 0) sorted.push(note);
+    for (note of r) if (note.duration > 0) sorted.push(note);
     sorted.sort((a, b) => (a.duration - b.duration));
     return sorted[0].duration;
   }
