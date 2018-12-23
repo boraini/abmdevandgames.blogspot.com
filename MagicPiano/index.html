@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<meta charset="UTF-8">
+<script src="https://tonejs.github.io/build/Tone.js"></script>
+<script src="https://tonejs.github.io/MidiConvert/build/MidiConvert.js"></script>
+<script>
+  var strings = {
+    TooManyTracksException: "Açtığınız MIDI dosyası ikiden fazla iz içeriyor. Aynı enstrümana ayarlanmış ilk iki izi kullanmak için onay verin.",
+    MonoTrackException: "Açtığınız MIDI dosyasında sadece bir iz bulunabildi. Ayırmayı başlatmak için isterseniz açılır menüden ayırma notasını seçin ve onay verin."
+  };
+  var lefttrack;
+  var righttrack;
+  var lefttrackassign;
+  var righttrackassign;
+  var songduration;
+  var beatduration;
+  var key = 60; //MIDI value of note where hands separate by default. 60 is C4.
+  var scrollspeed = 0;
+  var beatdistance = 0;
+  var screencontainer;
+  var leftfingers;
+  var rightfingers;
+  var leftfinger = [];
+  var rightfinger = [];
+  var synth;
+  var synthsettings = {
+    oscillator: {
+      type: "square"
+    },
+    envelope  : {
+      attack: 0.005,
+      decay: 20,
+      sustain: 0,
+      release: 0.5,
+    }
+  };
+  var plucksettings = {
+    attackNoise  : 1 ,
+    dampening  : 400 ,
+    resonance  : 0.7
+  };
+  addEventListener("load", setup);
+  function setup() {
+    screencontainer = document.getElementById("screen");
+    leftfingers = document.getElementById("lefthanddots");
+    rightfingers = document.getElementById("righthanddots");
+    for (var i = 0; i < 6; i++) leftfinger[i] = document.getElementById("left" + (6 - i));
+    for (var i = 0; i < 6; i++) rightfinger[i] = document.getElementById("right" + (1 + i));
+    //var mono = new Tone.Synth(synthsettings);
+    //var mono = new Tone.PluckSynth(plucksettings);
+    synth = new Tone.PolySynth(12, Tone.Synth.bind(synthsettings)).toMaster();
+    //synth = new Tone.PluckSynth(plucksettings).toMaster();
+    Tone.Transport.BPM = 120;
+    Tone.Transport.schedule(function(time) {synth.triggerAttackRelease(Tone.Frequency(60, "midi"), "8n")}, 0);
+    Tone.Transport.schedule(function(time) {synth.triggerAttackRelease(Tone.Frequency(64, "midi"), "8n")}, 0.1);
+    Tone.Transport.schedule(function(time) {synth.triggerAttackRelease(Tone.Frequency(67, "midi"), "8n")}, 0.2);
+    Tone.Transport.schedule(function(time) {synth.triggerAttackRelease(Tone.Frequency(72, "midi"), "8n")}, 0.3);
+    //setupsong("https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/MagicPianoTestCase.mid");
+    //setupsong("https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/JohannSebastianBachPreludeInCToneJS.mid");
+    showscreen("menuscreen");
+    Tone.Transport.start();
+    addEventListener("keydown", handleKey);
+  }
+  function showscreen(id) {
+    for (scr of document.querySelectorAll(".fullscreen")) scr.style.display = "none";
+    document.getElementById(id).style.display = "block";
+  }
+  function handleKey(ev) {
+    var btn = -1;
+    switch (ev.keyCode) {
+      case 65:
+      btn = 0;
+      break;
+      case 83:
+      btn = 1;
+      break;
+      case 68:
+      btn = 2;
+      break;
+      case 70:
+      btn = 3;
+      break;
+      case 71:
+      btn = 4;
+      break;
+      case 72:
+      btn = 5;
+      break;
+      case 74:
+      btn = 6;
+      break;
+      case 75:
+      btn = 7;
+      break;
+      case 76:
+      btn = 8;
+      break;
+      case 186:
+      btn = 9;
+      break;
+      case 73:
+      btn = 10;
+      break;
+      case 188:
+      btn = 11;
+      break;
+    }
+    if (btn > -1) {
+      if (btn < 6) handleFingerInput(leftfinger[btn]);
+      else handleFingerInput(rightfinger[btn - 6]);
+    }
+  }
+  function handleFingerInput(fing) {
+    if (fing.children[fing.children.length - 1] && fing.children[fing.children.length - 1].getBoundingClientRect().bottom > screencontainer.getBoundingClientRect().height / 2)
+      fing.children[fing.children.length - 1].click();
+  }
+  function setupsong(url) {
+    MidiConvert.load(url, midiReady);
+  }
+  function midiReady(result) {
+    showscreen("screen");
+    //display at least 10 beats on screen
+    //visible height * (beat frequency in Hz) / number of beats to show   //unit: px/s
+    scrollspeed = screencontainer.getBoundingClientRect().height * (result.header.bpm / 60) / 20;
+    var trackstouse = [];
+    for (track of result.tracks) {
+      if (true) {
+        trackstouse.push(track);
+      }
+    }
+    if (trackstouse.length > 2) {
+      var confirmmultiins = confirm(strings.TooManyTracksException);
+      if (confirmmultiins) {
+        trackstouse = (function(trax) {
+          var instrumentoptions = [];
+          for (track of trackstouse) {
+            if (track.instrumentNumber > -1) {
+              if (instrumentoptions[track.instrumentNumber] == null) instrumentoptions[track.instrumentNumber] = [];
+              instrumentoptions[track.instrumentNumber].push(track);
+            }
+          }
+          for (instrument of instrumentoptions) {
+            if (instrument.length > 1) return instrument;
+          }
+          return instrumentoptions[0];
+        })(trackstouse);
+      }
+    }
+    if (trackstouse.length == 2) {
+      if (medianNote(trackstouse[0].notes) < medianNote(trackstouse[1].notes)) {lefttrack = trackstouse[0]; righttrack = trackstouse[1];}
+      else {lefttrack = trackstouse[1]; righttrack = trackstouse[0];}
+      tracksSeparated();
+    }
+  }
+  function tracksSeparated() {
+    songduration = songDuration(lefttrack.notes, righttrack.notes);
+    beatduration = minDuration(lefttrack.notes, righttrack.notes);
+    var arraylength = Math.ceil(songduration / beatduration);
+    lefttrackassign = new Array(arraylength);
+    righttrackassign = new Array(arraylength);
+    var leftminimum = minNote(lefttrack.notes);
+    var leftmaximum = maxNote(lefttrack.notes);
+    var rightminimum = minNote(righttrack.notes);
+    var rightmaximum = maxNote(righttrack.notes);
+    var vhheight = screencontainer.getBoundingClientRect().height;
+    leftfinger[0].parentNode.style.height = songduration * scrollspeed + vhheight * 2 + "px";
+    rightfinger[0].parentNode.style.height = songduration * scrollspeed + vhheight * 2 + "px";
+    beatdistance = songduration * scrollspeed / Math.max(lefttrackassign.length, righttrackassign.length);
+    for (var i = lefttrackassign.length; i > 0; i--) {
+      lefttrackassign[i] = [];
+      righttrackassign[i] = [];
+      //splice and dangerous j-- are used to bring time complexity to O(1/n) from O(1)
+      for (var j = 0; j < lefttrack.notes.length; j++) {
+        if (lefttrack.notes[j].time + lefttrack.notes[j].duration > i * beatduration) {
+          lefttrackassign[i].push({finger: 0, note: lefttrack.notes.splice(j, 1)[0]});
+          j--;
+        }
+      }
+      for (var j = 0; j < righttrack.notes.length; j++) {
+        if (righttrack.notes[j].time + righttrack.notes[j].duration > i * beatduration) {
+          righttrackassign[i].push({finger: 0, note: righttrack.notes.splice(j, 1)[0]});
+          j--;
+        }
+      }
+      if (lefttrackassign[i].length > 0) {
+      var minimum = leftminimum;
+      var maximum = leftmaximum;
+      var fin = (maximum - minimum);
+      for (note of lefttrackassign[i]) {note.finger = Math.floor((note.note.midi - minimum) / fin * 5) || 5;}
+      }
+      if (righttrackassign[i].length > 0) {
+      var minimum = rightminimum;
+      var maximum = rightmaximum;
+      var fin = (maximum - minimum);
+      for (note of righttrackassign[i]) {note.finger = Math.floor((note.note.midi - minimum) / fin * 5) || 0;}
+      }
+      for (note of lefttrackassign[i]) {
+        var el = document.createElement("div");
+        el.className = "dot";
+        el.style.bottom = (i + 1) * beatdistance + vhheight + "px";
+        el.setAttribute("onmousedown", "playNote(this, " + note.note.midi + ", " + note.note.duration + ")");
+        el.setAttribute("onclick", "playNote(this, " + note.note.midi + ", " + note.note.duration + ")");
+        leftfinger[note.finger].appendChild(el);
+      }
+      for (note of righttrackassign[i]) {
+        var el = document.createElement("div");
+        el.className = "dot";
+        el.style.bottom = (i + 1) * beatdistance + vhheight + "px";
+        el.setAttribute("onmousedown", "playNote(this, " + note.note.midi + ", " + note.note.duration + ")");
+        el.setAttribute("onclick", "playNote(this, " + note.note.midi + ", " + note.note.duration + ")");
+        rightfinger[note.finger].appendChild(el);
+      }
+    }
+    leftfingers.scrollTop = leftfingers.scrollHeight - vhheight;
+    rightfingers.scrollTop = leftfingers.scrollHeight - vhheight;
+    lasttime = performance.now();
+    speed = scrollspeed;
+    doScroll(performance.now());
+  }
+  var lasttime = 0;
+  var speed = 0;
+  function doScroll(t) {
+    var playerslow = false;
+    for (fing of leftfinger) if (fing.children.length > 0 && fing.children[fing.children.length - 1].getBoundingClientRect().bottom > screencontainer.getBoundingClientRect().height / 2 + beatdistance) playerslow = true;
+    if (playerslow && speed > 1e-16) speed /= 2;
+    else if (speed < scrollspeed) speed *= 2;
+    else speed = scrollspeed;
+    leftfingers.scrollTop -= (t - lasttime) / 1000 * speed;
+    rightfingers.scrollTop -= (t - lasttime) / 1000 * speed;
+    lasttime = t;
+    if (leftfingers.scrollTop > 5) window.requestAnimationFrame(doScroll);
+    else showscreen("menuscreen");
+  }
+  function medianNote(notes) {
+    var sorted = [];
+    for (note of notes) sorted.push(note);
+    sorted.sort((a, b) => (a.midi - b.midi));
+    return sorted[(sorted.length - (sorted.length % 2)) / 2].midi;
+  }
+  function minNote(notes) {
+    var sorted = [];
+    for (note of notes) sorted.push(note);
+    sorted.sort((a, b) => (a.midi - b.midi));
+    return sorted[0].midi;
+  }
+  function minFingeredNote(notes) {
+    var sorted = [];
+    for (note of notes) sorted.push(note);
+    sorted.sort((a, b) => (a.note.midi - b.note.midi));
+    return sorted[0].note.midi;
+  }
+  function maxNote(notes) {
+    var sorted = [];
+    for (note of notes) sorted.push(note);
+    sorted.sort((a, b) => (a.midi - b.midi));
+    return sorted[sorted.length - 1].midi;
+  }
+  function maxFingeredNote(notes) {
+    var sorted = [];
+    for (note of notes) sorted.push(note);
+    sorted.sort((a, b) => (a.note.midi - b.note.midi));
+    return sorted[sorted.length - 1].note.midi;
+  }
+  function minDuration(l, r) {
+    var sorted = [];
+    for (note of l) sorted.push(note);
+    for (note of r) sorted.push(note);
+    sorted.sort((a, b) => (a.duration - b.duration));
+    return sorted[0].duration;
+  }
+  function songDuration(l, r) {
+    var sorted = [];
+    for (note of l) sorted.push(note);
+    for (note of r) sorted.push(note);
+    sorted.sort((a, b) => ((a.time + a.duration) - (b.time + b.duration)));
+    return sorted[sorted.length - 1].time + sorted[sorted.length - 1].duration;
+  }
+  //Passable guess of major key. May hit if the piece is in major key.
+  function identifyKey(trax) {
+    var notes = [];
+    for (track of trax) {notes = notes.concat(track.notes);}
+    var lastnotes = [];
+    var lastindex = 0.0;
+    for (note of notes) {if (note.time > lastindex) lastindex = note.time;}
+    for (note of notes) {if (note.time + note.duration > lastindex) lastnotes.push(note);}
+    lastnotes.sort((a, b) => (a.midi - b.midi));
+    return lastnotes[0].midi % 12;
+  }
+  function playNote(el, midi, duration) {
+    synth.triggerAttackRelease(Tone.Frequency(midi, "midi"), duration);
+    if (el) {
+      el.parentNode.removeChild(el);
+    }
+  }
+</script>
+<style>
+  html, body {margin: 0; padding: 0; overflow: hidden;}
+  .fullscreen {margin: 0; box-sizing: border-box; width: 100vw; height: 100vh; background-color: #404; position: relative;}
+  #menuscreen table, #menuscreen th, #menuscreen td {border: 1px solid white;}
+  #menuscreen table {border-collapse: collapse;}
+  table.lefthand {position: absolute; display: block; right: 60%; top: 0; height: 100vh; border: 1px solid white; width: 9cm; overflow-y: hidden; border-collapse: collapse;}
+  table.righthand {position: absolute; display: block; left: 60%; top: 0; height: 100vh; border: 1px solid white; width: 9cm; overflow-y: hidden; border-collapse: collapse;}
+  table.lefthand tbody, table.righthand tbody {display: block; width: 100%; height: 100%; overflow-x: hidden; overflow-y: scroll;}
+  table.lefthand tr, table.righthand tr {display: table; width: 100%;}
+  table.lefthand td, table.righthand td {border: 1px solid #f0f; padding: 0; position: relative;}
+  table.lefthand td .dot, table.righthand td .dot {position: absolute; left: 50%; width: 0.6cm; height: 0.6cm; transform: translate(-0.3cm, -0.3cm) rotate(45deg); background-color: white;}
+  div.playarea {position: absolute; left: 0; bottom: calc(50% + 2em); width: 100%; height: 0.2cm; background-color: white;}
+  div.playrowlabel {position: absolute; bottom: 50%; font: 14px sans-serif; color: white;}
+  div.left6 {left: calc(40% - 9cm + 0.2cm);}
+  div.left5 {left: calc(40% - 9cm + 1.7cm);}
+  div.left4 {left: calc(40% - 9cm + 3.2cm);}
+  div.left3 {left: calc(40% - 9cm + 4.7cm);}
+  div.left2 {left: calc(40% - 9cm + 6.2cm);}
+  div.left1 {left: calc(40% - 9cm + 7.7cm);}
+  div.right1 {left: calc(60% + 0.2cm);}
+  div.right2 {left: calc(60% + 1.7cm);}
+  div.right3 {left: calc(60% + 3.2cm);}
+  div.right4 {left: calc(60% + 4.7cm);}
+  div.right5 {left: calc(60% + 6.2cm);}
+  div.right6 {left: calc(60% + 7.7cm);}
+  @media only screen and (max-width: 23cm) {
+    table.lefthand {right: 50%; width: 50%;}
+    table.righthand {left: 50%; width: 50%;}
+    div.left6 {left: 0.2cm;}
+    div.left5 {left: calc(8.33% + 0.2cm);}
+    div.left4 {left: calc(16.67% + 0.2cm);}
+    div.left3 {left: calc(25% + 0.2cm);}
+    div.left2 {left: calc(33.33% + 0.2cm);}
+    div.left1 {left: calc(41.67% + 0.2cm);}
+    div.right1 {left: calc(50% + 0.2cm);}
+    div.right2 {left: calc(58.33% + 0.2cm);}
+    div.right3 {left: calc(66.67% + 0.2cm);}
+    div.right4 {left: calc(75% + 0.2cm);}
+    div.right5 {left: calc(83.33% + 0.2cm);}
+    div.right6 {left: calc(91.67% + 0.2cm);}
+  }
+</style>
+<div class="fullscreen menu" id="menuscreen" style="overflow-x: hidden; overflow-y: scroll; font: 12pt sans-serif; color: white;">
+  <h1>abmdevandgames Magic Piano</h1>
+  <h4>Inspired from the mobile app with the same name by Smule</h4>
+  <p>
+  Paste the MIDI URL here to start playing. We take no responsibility of screwed-up computers.<br/>
+  <input type="text" id="urlinput"/><button onclick="setupsong(document.getElementById('urlinput').value)">Play</button><br/>
+  Note: Most MIDI's don't work due to empty tracks added by different sites for advertisement purposes. The algorithm tries to filter these out as good as possible, but what can it do sometimes?<br/>
+  Note: Track two hand separation doesn't work currently. Soon it will be available, after exams!<br/>
+  Note: Most requests fail due to Cross Origin Request Security, a safety standard of HTML. The MIDIs below are loaded from sites which support readable requesting.<br/>
+  </p>
+  <!--    //setupsong("https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/MagicPianoTestCase.mid");
+      setupsong("https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/JohannSebastianBachPreludeInCToneJS.mid");-->
+  <p>
+  <table style="display: block; width: 100%; overflow-x: scroll;">
+    <caption>Approved MIDIs</caption>
+    <thead>
+      <th>Name</th>
+      <th>Composer</th>
+      <th>Source</th>
+      <th>Mirror</th>
+      <th>URL</th>
+      <th></th>
+    </thead>
+    <tbody>
+      <tr><td>Magic Piano Test Case</td><td>Mert Bora İnevi</td><td>Original</td><td>boraini.github.io</td><td>https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/MagicPianoTestCase.mid</td><td><button onclick="setupsong('https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/MagicPianoTestCase.mid')">Play</button></td></tr>
+      <tr><td>Prelude in C</td><td>Johann Sebastian Bach</td><td>tonejs.github.io</td><td>boraini.github.io</td><td>https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/JohannSebastianBachPreludeInCToneJS.mid</td><td><button onclick="setupsong('https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/JohannSebastianBachPreludeInCToneJS.mid')">Play</button></td></tr>
+    </tbody>
+  </table>
+  </p>
+</div>
+<div class="fullscreen play" id="screen">
+  <table class="playscreen lefthand">
+    <tbody id="lefthanddots">
+    <tr>
+      <td id="left6"></td>
+      <td id="left5"></td>
+      <td id="left4"></td>
+      <td id="left3"></td>
+      <td id="left2"></td>
+      <td id="left1"></td>
+    </tr>
+    </tbody>
+  </table>
+  <table class="playscreen righthand">
+    <tbody id="righthanddots">
+    <tr>
+      <td id="right1"></td>
+      <td id="right2"></td>
+      <td id="right3"></td>
+      <td id="right4"></td>
+      <td id="right5"></td>
+      <td id="right6"></td>
+    </tr>
+    </tbody>
+  </table>
+  <div class="playscreen playrowlabel left6">A</div>
+  <div class="playscreen playrowlabel left5">S</div>
+  <div class="playscreen playrowlabel left4">D</div>
+  <div class="playscreen playrowlabel left3">F</div>
+  <div class="playscreen playrowlabel left2">G</div>
+  <div class="playscreen playrowlabel left1">H</div>
+  <div class="playscreen playrowlabel right1">J</div>
+  <div class="playscreen playrowlabel right2">K</div>
+  <div class="playscreen playrowlabel right3">L</div>
+  <div class="playscreen playrowlabel right4">Ş ;</div>
+  <div class="playscreen playrowlabel right5">İ '</div>
+  <div class="playscreen playrowlabel right6">; \</div>
+  <div class="playscreen playarea"></div>
+</div>
