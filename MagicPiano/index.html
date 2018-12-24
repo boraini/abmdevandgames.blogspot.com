@@ -3,9 +3,13 @@
 <script src="https://tonejs.github.io/build/Tone.js"></script>
 <script src="https://tonejs.github.io/MidiConvert/build/MidiConvert.js"></script>
 <script>
-  var strings = {
+  /*var strings = {
     TooManyTracksException: "Açtığınız MIDI dosyası ikiden fazla iz içeriyor. Aynı enstrümana ayarlanmış ilk iki izi kullanmak için onay verin.",
     MonoTrackException: "Açtığınız MIDI dosyasında sadece bir iz bulunabildi. Ayırmayı başlatmak için isterseniz açılır menüden ayırma notasını seçin ve onay verin."
+  };*/
+  var strings = {
+    TooManyTracksException: "The MIDI file you opened has more than two tracks. Confirm to use the first two tracks with the same instrument number.",
+    MonoTrackException: "Only one suitable track could be found in the MIDI file you opened. Confirm to use 12-separation. (don't)"
   };
   var lefttrack;
   var righttrack;
@@ -21,6 +25,8 @@
   var rightfingers;
   var leftfinger = [];
   var rightfinger = [];
+  var autoplayleft;
+  var autoplayright;
   var synth;
   var synthsettings = {
     oscillator: {
@@ -43,21 +49,23 @@
     screencontainer = document.getElementById("screen");
     leftfingers = document.getElementById("lefthanddots");
     rightfingers = document.getElementById("righthanddots");
+    autoplayleft = document.getElementById("autoplayleft");
+    autoplayright = document.getElementById("autoplayright");
     for (var i = 0; i < 6; i++) leftfinger[i] = document.getElementById("left" + (6 - i));
     for (var i = 0; i < 6; i++) rightfinger[i] = document.getElementById("right" + (1 + i));
     //var mono = new Tone.Synth(synthsettings);
     //var mono = new Tone.PluckSynth(plucksettings);
-    synth = new Tone.PolySynth(12, Tone.Synth.bind(synthsettings)).toMaster();
+    synth = new Tone.PolySynth(8, Tone.Synth.bind(synthsettings)).toMaster();
     //synth = new Tone.PluckSynth(plucksettings).toMaster();
-    Tone.Transport.BPM = 120;
+    /*Tone.Transport.BPM = 120;
     Tone.Transport.schedule(function(time) {synth.triggerAttackRelease(Tone.Frequency(60, "midi"), "8n")}, 0);
     Tone.Transport.schedule(function(time) {synth.triggerAttackRelease(Tone.Frequency(64, "midi"), "8n")}, 0.1);
     Tone.Transport.schedule(function(time) {synth.triggerAttackRelease(Tone.Frequency(67, "midi"), "8n")}, 0.2);
-    Tone.Transport.schedule(function(time) {synth.triggerAttackRelease(Tone.Frequency(72, "midi"), "8n")}, 0.3);
+    Tone.Transport.schedule(function(time) {synth.triggerAttackRelease(Tone.Frequency(72, "midi"), "8n")}, 0.3);*/
     //setupsong("https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/MagicPianoTestCase.mid");
     //setupsong("https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/JohannSebastianBachPreludeInCToneJS.mid");
     showscreen("menuscreen");
-    Tone.Transport.start();
+    //Tone.Transport.start();
     addEventListener("keydown", handleKey);
   }
   function showscreen(id) {
@@ -116,6 +124,18 @@
   function setupsong(url) {
     MidiConvert.load(url, midiReady);
   }
+  function getBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+  }
+  function loadFromFile() {
+    var file = document.getElementById("fileinput").files[0];
+    getBase64(file).then(setupsong);
+  }
   function midiReady(result) {
     showscreen("screen");
     //display at least 10 beats on screen
@@ -170,13 +190,13 @@
       righttrackassign[i] = [];
       //splice and dangerous j-- are used to bring time complexity to O(1/n) from O(1)
       for (var j = 0; j < lefttrack.notes.length; j++) {
-        if (lefttrack.notes[j].time + lefttrack.notes[j].duration > i * beatduration) {
+        if (lefttrack.notes[j].time > i * beatduration) {
           lefttrackassign[i].push({finger: 0, note: lefttrack.notes.splice(j, 1)[0]});
           j--;
         }
       }
       for (var j = 0; j < righttrack.notes.length; j++) {
-        if (righttrack.notes[j].time + righttrack.notes[j].duration > i * beatduration) {
+        if (righttrack.notes[j].time > i * beatduration) {
           righttrackassign[i].push({finger: 0, note: righttrack.notes.splice(j, 1)[0]});
           j--;
         }
@@ -197,6 +217,7 @@
         var el = document.createElement("div");
         el.className = "dot";
         el.style.bottom = (i + 1) * beatdistance + vhheight + "px";
+        el.setAttribute("index", i);
         el.setAttribute("onmousedown", "playNote(this, " + note.note.midi + ", " + note.note.duration + ")");
         el.setAttribute("onclick", "playNote(this, " + note.note.midi + ", " + note.note.duration + ")");
         leftfinger[note.finger].appendChild(el);
@@ -205,6 +226,7 @@
         var el = document.createElement("div");
         el.className = "dot";
         el.style.bottom = (i + 1) * beatdistance + vhheight + "px";
+        el.setAttribute("index", i);
         el.setAttribute("onmousedown", "playNote(this, " + note.note.midi + ", " + note.note.duration + ")");
         el.setAttribute("onclick", "playNote(this, " + note.note.midi + ", " + note.note.duration + ")");
         rightfinger[note.finger].appendChild(el);
@@ -219,8 +241,29 @@
   var lasttime = 0;
   var speed = 0;
   function doScroll(t) {
+    if (autoplayleft.checked && autoplayright.checked) {
+      var lowestheight = 0;
+      var lowestindex;
+      var eee;
+      for (fing of leftfinger) {
+      if (fing.children[fing.children.length - 1]) {
+      if (fing.children[fing.children.length - 1].getBoundingClientRect().bottom > lowestheight) {
+        lowestheight = fing.children[fing.children.length - 1].getBoundingClientRect().bottom;
+        lowestindex = fing.children[fing.children.length - 1].getAttribute("index");
+        eee = fing.children[fing.children.length - 1];
+      }}}
+      for (fing of rightfinger) {
+      if (fing.children[fing.children.length - 1]) {
+      if (fing.children[fing.children.length - 1].getBoundingClientRect().bottom > lowestheight) {
+        lowestheight = fing.children[fing.children.length - 1].getBoundingClientRect().bottom;
+        lowestindex = fing.children[fing.children.length - 1].getAttribute("index");
+        eee = fing.children[fing.children.length - 1];
+      }}}
+      if (lowestindex && eee.getBoundingClientRect().bottom > screencontainer.getBoundingClientRect().height / 2) for (dot of document.querySelectorAll('.dot[index="' + lowestindex + '"]')) dot.click();
+    }
     var playerslow = false;
     for (fing of leftfinger) if (fing.children.length > 0 && fing.children[fing.children.length - 1].getBoundingClientRect().bottom > screencontainer.getBoundingClientRect().height / 2 + beatdistance) playerslow = true;
+    for (fing of rightfinger) if (fing.children.length > 0 && fing.children[fing.children.length - 1].getBoundingClientRect().bottom > screencontainer.getBoundingClientRect().height / 2 + beatdistance) playerslow = true;
     if (playerslow && speed > 1e-16) speed /= 2;
     else if (speed < scrollspeed) speed *= 2;
     else speed = scrollspeed;
@@ -317,6 +360,10 @@
   div.right4 {left: calc(60% + 4.7cm);}
   div.right5 {left: calc(60% + 6.2cm);}
   div.right6 {left: calc(60% + 7.7cm);}
+  #screen input.left {position: absolute; bottom: 1cm; appearance: none; -webkit-appearance: none; display: block; right: calc(60% + 4.5cm); transform: translateX(3cm); width: 6cm; height: 20pt; background-color: white; color: black; text-align: center; font: 16pt sans-serif;}
+  #screen input.right {position: absolute; bottom: 1cm; appearance: none; -webkit-appearance: none; display: block; left: calc(60% + 4.5cm); transform: translateX(-3cm); width: 6cm; height: 20pt; background-color: white; color: black; text-align: center; font: 16pt sans-serif;}
+  #screen input.left:before, #screen input.right:before {content: "Auto Play";}
+  #screen input:checked {background-color: green;}
   @media only screen and (max-width: 23cm) {
     table.lefthand {right: 50%; width: 50%;}
     table.righthand {left: 50%; width: 50%;}
@@ -332,14 +379,17 @@
     div.right4 {left: calc(75% + 0.2cm);}
     div.right5 {left: calc(83.33% + 0.2cm);}
     div.right6 {left: calc(91.67% + 0.2cm);}
+    #screen input.left {right: 75%;}
+    #screen input.right {left: 75%;}
   }
 </style>
 <div class="fullscreen menu" id="menuscreen" style="overflow-x: hidden; overflow-y: scroll; font: 12pt sans-serif; color: white;">
   <h1>abmdevandgames Magic Piano</h1>
-  <h4>Inspired from the mobile app with the same name by Smule</h4>
+  <h4>by Mert Bora İnevi (Boraini). Inspired from the mobile app with the same name by Smule</h4>
+  <h3><a href="abmdevandgames.blogspot.com" style="color: white;">Like, Comment, Suggest MIDI Here!</a></h3>
   <p>
-  Paste the MIDI URL here to start playing. We take no responsibility of screwed-up computers.<br/>
-  <input type="text" id="urlinput"/><button onclick="setupsong(document.getElementById('urlinput').value)">Play</button><br/>
+  Paste the MIDI URL here to start playing. Import your MIDI file directly in the file input to start playing. We take no responsibility of screwed-up computers.<br/>
+  <input type="text" id="urlinput"/><button onclick="setupsong(document.getElementById('urlinput').value)">Play from URL</button><input type="file" id="fileinput"/><button onclick="loadFromFile()">Play from File</button><br/>
   Note: Most MIDI's don't work due to empty tracks added by different sites for advertisement purposes. The algorithm tries to filter these out as good as possible, but what can it do sometimes?<br/>
   Note: Track two hand separation doesn't work currently. Soon it will be available, after exams!<br/>
   Note: Most requests fail due to Cross Origin Request Security, a safety standard of HTML. The MIDIs below are loaded from sites which support readable requesting.<br/>
@@ -360,6 +410,8 @@
     <tbody>
       <tr><td>Magic Piano Test Case</td><td>Mert Bora İnevi</td><td>Original</td><td>boraini.github.io</td><td>https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/MagicPianoTestCase.mid</td><td><button onclick="setupsong('https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/MagicPianoTestCase.mid')">Play</button></td></tr>
       <tr><td>Prelude in C</td><td>Johann Sebastian Bach</td><td>tonejs.github.io</td><td>boraini.github.io</td><td>https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/JohannSebastianBachPreludeInCToneJS.mid</td><td><button onclick="setupsong('https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/JohannSebastianBachPreludeInCToneJS.mid')">Play</button></td></tr>
+      <tr><td><span style="display: inline-block; transform: scaleX(-1);">R</span>USH B</td><td>Sheet Music Boss (YouTube)</td><td>musescore.com/user/4520111/</td><td>boraini.github.io</td><td>https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/SheetMusicBossRushBMuseScore.mid</td><td><button onclick="setupsong('https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/SheetMusicBossRushBMuseScore.mid')">Play</button></td></tr>
+      <tr><td>Megalovania</td><td>Toby Fox (Undertale)</td><td>musescore.com/user/5715836/</td><td>boraini.github.io</td><td>https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/TobyFoxMegalovaniaMuseScore.mid</td><td><button onclick="setupsong('https://boraini.github.io/abmdevandgames.blogspot.com/MagicPiano/TobyFoxMegalovaniaMuseScore.mid')">Play</button></td></tr>
     </tbody>
   </table>
   </p>
@@ -389,6 +441,8 @@
     </tr>
     </tbody>
   </table>
+  <input id="autoplayleft" type="checkbox" class="left" onclick="this.blur()"/>
+  <input id="autoplayright" type="checkbox" class="right" onclick="this.blur()"/>
   <div class="playscreen playrowlabel left6">A</div>
   <div class="playscreen playrowlabel left5">S</div>
   <div class="playscreen playrowlabel left4">D</div>
