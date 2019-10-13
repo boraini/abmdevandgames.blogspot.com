@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   id="svg4521"
+   version="1.1"
+   viewBox="0 0 211.66667 211.66667"
+   height="800"
+   width="800">
+  <defs
+     id="defs4515" />
+  <metadata
+     id="metadata4518">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     transform="translate(0,-85.333349)"
+     id="layer1">
+    <flowRoot
+       transform="matrix(0.26458333,0,0,0.26458333,0,85.333349)"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:96px;line-height:1.25;font-family:Arial;-inkscape-font-specification:Arial;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       id="flowRoot5069"
+       xml:space="preserve"><flowRegion
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Arial;-inkscape-font-specification:Arial"
+         id="flowRegion5071"><rect
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Arial;-inkscape-font-specification:Arial"
+           y="141.42857"
+           x="222.85715"
+           height="154.28572"
+           width="452.85715"
+           id="rect5073" /></flowRegion><flowPara
+         id="flowPara5075" /></flowRoot>    <g
+       transform="translate(1.1339286,-2.6458333)"
+       id="g5108">
+      <path
+         style="opacity:1;fill:none;fill-opacity:1;stroke:#000000;stroke-width:2.64583325;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:0.94594589"
+         d="M 57.559416,106.12204 H 182.45547 c 8.43525,0 15.22608,6.79083 15.22608,15.22608 v 143.03891 c 0,8.43525 -7.54678,17.49394 -15.98203,17.49394 L 13.226189,281.75676 41.57738,254.55965 42.333332,121.34812 c 0.04787,-8.43511 6.790833,-15.22608 15.226084,-15.22608 z"
+         id="rect5066" />
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:25.39999962px;line-height:1.25;font-family:Arial;-inkscape-font-specification:Arial;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+         x="51.404758"
+         y="137.87204"
+         id="text5079"><tspan
+           id="tspan5077"
+           x="51.404758"
+           y="137.87204"
+           style="stroke-width:0.26458332">gak gak gak</tspan><tspan
+           x="51.404758"
+           y="169.62204"
+           style="stroke-width:0.26458332"
+           id="tspan5085">gak gak gak</tspan><tspan
+           x="51.404758"
+           y="201.37204"
+           style="stroke-width:0.26458332"
+           id="tspan5087">gak gak gak</tspan><tspan
+           x="51.404758"
+           y="233.12204"
+           style="stroke-width:0.26458332"
+           id="tspan5089">gak gak gak</tspan><tspan
+           x="51.404758"
+           y="264.87204"
+           style="stroke-width:0.26458332"
+           id="tspan5095">gak gak gak</tspan><tspan
+           x="51.404758"
+           y="296.62204"
+           style="stroke-width:0.26458332"
+           id="tspan5093" /><tspan
+           x="51.404758"
+           y="328.37204"
+           style="stroke-width:0.26458332"
+           id="tspan5091" /><tspan
+           x="51.404758"
+           y="360.12204"
+           style="stroke-width:0.26458332"
+           id="tspan5083" /><tspan
+           x="51.404758"
+           y="391.87204"
+           style="stroke-width:0.26458332"
+           id="tspan5081" /></text>
+    </g>
+  </g>
+</svg>
