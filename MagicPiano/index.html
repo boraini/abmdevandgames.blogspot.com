@@ -122,7 +122,7 @@
       fing.children[fing.children.length - 1].click();
   }
   function setupsong(url) {
-    MidiConvert.load(url, midiReady);
+    Midi.fromUrl(url).then(midiReady);
   }
   function getBase64(file) {
     return new Promise((resolve, reject) => {
@@ -137,10 +137,12 @@
     getBase64(file).then(setupsong);
   }
   function midiReady(result) {
+    console.log(result);
     showscreen("screen");
     //display at least 10 beats on screen
     //visible height * (beat frequency in Hz) / number of beats to show   //unit: px/s
-    scrollspeed = screencontainer.getBoundingClientRect().height * (result.header.bpm / 60) / 20;
+    console.log(result.header.tempos.bpm);
+    scrollspeed = (window.innerHeight || window.clientHeight) * (result.header.tempos[0].bpm / 60) / 20;
     var trackstouse = [];
     for (track of result.tracks) {
       if (true) {
@@ -172,6 +174,7 @@
     }
   }
   function tracksSeparated() {
+    console.log("tracks separated");
     songduration = songDuration(lefttrack.notes, righttrack.notes);
     beatduration = minDuration(lefttrack.notes, righttrack.notes);
     var arraylength = Math.ceil(songduration / beatduration);
@@ -236,6 +239,7 @@
     rightfingers.scrollTop = leftfingers.scrollHeight - vhheight;
     lasttime = performance.now();
     speed = scrollspeed;
+    console.log("beginning");
     doScroll(performance.now());
   }
   var lasttime = 0;
